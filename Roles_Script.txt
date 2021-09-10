@@ -1,0 +1,88 @@
+
+
+
+
+
+
+
+
+
+
+
+
+#****************
+#------------------------------------------------------
+# --> PBI Connection
+#------------------------------------------------------ 
+Write-Host " PBI credentials ..." -ForegroundColor Yellow -BackgroundColor DarkGreen
+
+ 
+
+## PBI credentials 
+
+ 
+
+$password = "venkatspassword" | ConvertTo-SecureString -asPlainText -Force
+$username = "venkatakrishnan.narayanan@anheuser-busch.com" 
+$credential = New-Object System.Management.Automation.PSCredential($username, $password)
+
+ 
+
+## PBI connect 
+
+ 
+
+Connect-PowerBIServiceAccount -Credential $credential
+
+ 
+
+
+#****************
+#------------------------------------------------------
+# --> 1. API Call for WORKSPACE USERS  
+#------------------------------------------------------
+Write-Host " API Call ..." -ForegroundColor Yellow -BackgroundColor DarkGreen
+    
+    $GroupWorkspaceId = "c82a4936-11be-43a9-b879-2f09e1708a6f" #get workspace ID from web url
+    $WorkspaceObject = Get-PowerBIWorkspace -Scope Individual -Id $GroupWorkspaceId
+    Write-Host $WorkspaceObject
+    $pbiURL = "https://api.powerbi.com/v1.0/myorg/groups/$GroupWorkspaceId/users"
+    ##Write-Host $pbiURL
+
+ 
+
+    ## API call
+    $resultJson = Invoke-PowerBIRestMethod –Url $pbiURL –Method GET 
+    $resultObject = ConvertFrom-Json -InputObject $resultJson 
+    ##Write-Host $resultObject
+
+ 
+
+    ## Collect data fields for each loop
+    $WorkspaceUsers += $resultObject.Value | 
+    SELECT @{n='WorkspaceId';e={$GroupWorkspaceId}}, 
+            @{n='Workspace';e={$WorkspaceObject.Name}}, 
+            displayName, 
+            emailAddress, 
+            @{n='UserRole';e={$_.groupUserAccessRight}}, 
+            @{n='Principle';e={$_.principalType}} |
+        SELECT Workspace, displayName, UserRole, Principle, emailAddress | 
+        SORT Principle, UserRole, displayName 
+    ##Write-Host $WorkspaceUsers
+    
+    ## Print loop results
+    $WorkspaceUsers | ft -auto ##| Where{$_.WorkspaceId -eq $GroupWorkspaceId} 
+
+ 
+
+    clear-variable -name resultJson
+    clear-variable -name resultObject
+
+ 
+
+    ## Export user access for all workspaces
+    $WorkspaceUsers | SORT Workspace, UserRole, displayName | Out-GridView
+
+ 
+
+    clear-variable -name WorkspaceUsers
